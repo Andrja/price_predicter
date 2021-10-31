@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from price_predicter import squash_into_1_candle, predict_bid_ask_price
+from price_predicter import squash_into_1_candle, predict_bid_ask_delta
 
 
 class TestPricePredicter(unittest.TestCase):
@@ -20,10 +20,10 @@ class TestPricePredicter(unittest.TestCase):
     def test_predict_bid_ask_price(self):
         data = read_quotes_from_excel_to_dict()
         latest_custom_interval = [61719.66, 61719.73, 61727.03, 61683.53]
-        bid, ask = predict_bid_ask_price(data, 15, 50, latest_custom_interval)
+        bid_delta, ask_delta = predict_bid_ask_delta(data, 15, 50, latest_custom_interval)
 
-        self.assertEqual(bid, 61734.33)
-        self.assertEqual(ask, 61693.14000000001)
+        self.assertEqual(bid_delta, 14.669999999998254)
+        self.assertEqual(ask_delta, 26.589999999996508)
 
 
 def read_quotes_from_excel_to_dict():

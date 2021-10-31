@@ -44,6 +44,10 @@ ask_success_rate_percents = 0
 # turns on/off displaying success rate
 show_success_rate = True
 
+# predicted prices
+estimated_bid_delta = 0
+estimated_ask_delta = 0
+
 # max size of historical intervals dictionary
 historical_intervals_dictionary_max_size = number_of_candles_to_rely_on * 2
 
@@ -66,26 +70,34 @@ def process_message(message):
 
         total_custom_intervals_formed += 1
 
-        open_time, custom_timeframe_candle = squash_into_1_candle(bids_asks_for_custom_time_interval)
-        custom_timeframe_candles_history.update({open_time: custom_timeframe_candle})
+        first_quote_key, custom_timeframe_candle = squash_into_1_candle(bids_asks_for_custom_time_interval)
+        custom_timeframe_candles_history.update({first_quote_key: custom_timeframe_candle})
 
         # get prediction
         if total_custom_intervals_formed > number_of_candles_to_rely_on:
+            global estimated_bid_delta
+            global estimated_ask_delta
+
+            if estimated_bid_delta > 0:
+
+                estimated_bid_price = float(custom_timeframe_candle[0]) + float(estimated_bid_delta)
+                estimated_ask_price = float(custom_timeframe_candle[1]) - float(estimated_ask_delta)
+
+                print(f'### Predicted bid price {round(estimated_bid_price, 2)} ###')
+                print(f'### Best bid price {float(custom_timeframe_candle[2])} ###')
+
+                print(f'### Predicted ask price {round(estimated_ask_price, 2)} ###')
+                print(f'### Best ask price {float(custom_timeframe_candle[3])} ###')
+
+                if show_success_rate:
+                    calculate_success_rate(custom_timeframe_candle, total_custom_intervals_formed, estimated_bid_price,
+                                           estimated_ask_price)
+
             # main calculation
-            estimated_bid_price, estimated_ask_price = predict_bid_ask_price(custom_timeframe_candles_history,
+            estimated_bid_delta, estimated_ask_delta = predict_bid_ask_delta(custom_timeframe_candles_history,
                                                                              number_of_candles_to_rely_on,
                                                                              required_percentile,
                                                                              custom_timeframe_candle)
-
-            print(f'### Predicted bid price {round(estimated_bid_price, 2)} ###')
-            print(f'### Best bid price {float(custom_timeframe_candle[2])} ###')
-
-            print(f'### Predicted ask price {round(estimated_ask_price, 2)} ###')
-            print(f'### Best ask price {float(custom_timeframe_candle[3])} ###')
-
-            if show_success_rate:
-                calculate_success_rate(custom_timeframe_candle, total_custom_intervals_formed, estimated_bid_price,
-                                       estimated_ask_price)
 
         bids_asks_for_custom_time_interval.clear()
 
@@ -149,7 +161,7 @@ def squash_into_1_candle(bids_asks_for_custom_time_interval):
     return first_quote_key, one_candle
 
 
-def predict_bid_ask_price(c_time_cndl_hist, numb_of_b_a, required_percentile, custom_timeframe_candle):
+def predict_bid_ask_delta(c_time_cndl_hist, numb_of_b_a, required_percentile, custom_timeframe_candle):
     volatility_dict_up = {}
     volatility_dict_down = {}
 
@@ -158,6 +170,10 @@ def predict_bid_ask_price(c_time_cndl_hist, numb_of_b_a, required_percentile, cu
         c_time_cndl_hist = dict(list(c_time_cndl_hist.items())[-numb_of_b_a:])
 
     for candle in c_time_cndl_hist:
+        # c_time_cndl_hist.get(candle)[0] - open bid
+        # c_time_cndl_hist.get(candle)[1] - open ask
+        # c_time_cndl_hist.get(candle)[2] - best bid
+        # c_time_cndl_hist.get(candle)[3] - best ask
         volatility_up = float(c_time_cndl_hist.get(candle)[2]) - float(c_time_cndl_hist.get(candle)[0])
         volatility_dict_up.update({candle: volatility_up})
 
@@ -171,10 +187,7 @@ def predict_bid_ask_price(c_time_cndl_hist, numb_of_b_a, required_percentile, cu
     bid_delta_prediction = np.percentile(np.array(bid_deltas), required_percentile)
     ask_delta_prediction = np.percentile(np.array(ask_deltas), required_percentile)
 
-    estimated_bid_price = float(custom_timeframe_candle[0]) + float(bid_delta_prediction)
-    estimated_ask_price = float(custom_timeframe_candle[1]) - float(ask_delta_prediction)
-
-    return estimated_bid_price, estimated_ask_price
+    return bid_delta_prediction, ask_delta_prediction
 
 
 if __name__ == '__main__':
