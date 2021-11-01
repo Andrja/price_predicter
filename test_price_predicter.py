@@ -10,25 +10,40 @@ class TestPricePredicter(unittest.TestCase):
         data = read_quotes_from_excel_to_dict()
         key, result = squash_into_1_candle(data)
 
-        self.assertEqual(key, 0)
-        self.assertEqual(result[0], 60064.16)
-        self.assertEqual(result[1], 60072.66)
-        self.assertEqual(result[2], 62325.34)
-        self.assertEqual(result[3], 60050.01)
+        self.assertEqual(key, '14728527130')
+        self.assertEqual(result[0], 62029.53)
+        self.assertEqual(result[1], 62029.54)
+        self.assertEqual(result[2], 62029.53)
+        self.assertEqual(result[3], 61950.0)
+        self.assertEqual(result[4], 61949.99)
+        self.assertEqual(result[5], 61950.0)
+        self.assertEqual(result[6], 61949.99)
+        self.assertEqual(result[7], 62029.54)
 
 
     def test_predict_bid_ask_price(self):
         data = read_quotes_from_excel_to_dict()
-        latest_custom_interval = [61719.66, 61719.73, 61727.03, 61683.53]
-        bid_delta, ask_delta = predict_bid_ask_delta(data, 15, 50, latest_custom_interval)
+        bid_delta, ask_delta = predict_bid_ask_delta(data, 10, 50)
 
-        self.assertEqual(bid_delta, 14.669999999998254)
-        self.assertEqual(ask_delta, 26.589999999996508)
+        self.assertEqual(bid_delta, 4.530000000002474)
+        self.assertEqual(ask_delta, 4.119999999998981)
 
 
 def read_quotes_from_excel_to_dict():
-    return {row[0] : [row[1], row[2], row[3], row[4]]
-            for _, row in pd.read_csv("BTCUSDT_ten_seconds_candles_history.csv").iterrows()}
+    df = pd.read_csv("BTCUSDT_custom_interval_candles_history.csv")
+
+    dict_quotes = {}
+    for col in df.iteritems():
+        dict_quotes.update({col[0] : [col[1][0], col[1][1], col[1][2],
+                                      col[1][3], col[1][4], col[1][5],
+                                      col[1][6], col[1][7]]})
+
+    length = dict_quotes.__len__() - 1
+
+    dict_quotes = dict(
+        list(dict_quotes.items())[-length:])
+
+    return dict_quotes
 
 if __name__ == '__main__':
     unittest.main()

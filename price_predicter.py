@@ -95,8 +95,7 @@ def process_message(message):
             # main calculation
             estimated_bid_delta, estimated_ask_delta = predict_bid_ask_delta(custom_timeframe_candles_history,
                                                                              number_of_candles_to_rely_on,
-                                                                             required_percentile,
-                                                                             custom_timeframe_candle)
+                                                                             required_percentile)
 
             if estimated_bid_delta > 0:
 
@@ -104,8 +103,8 @@ def process_message(message):
                 estimated_bid_price = float(custom_timeframe_candle[4]) + float(estimated_bid_delta)
                 estimated_ask_price = float(custom_timeframe_candle[5]) - float(estimated_ask_delta)
 
-                print(f'### Predicted bid price {round(estimated_bid_price, 2)} ###')
-                print(f'### Predicted ask price {round(estimated_ask_price, 2)} ###')
+                print(f'### Predicted long price {round(estimated_bid_price, 2)} ###')
+                print(f'### Predicted short price {round(estimated_ask_price, 2)} ###')
 
 
 
@@ -173,10 +172,14 @@ def squash_into_1_candle(bids_asks_for_custom_time_interval):
     one_candle.append(last_quote_values[0])
     one_candle.append(last_quote_values[1])
 
+    # adding highest ask and lowest bid
+    one_candle.append(min(bids_asks_for_custom_time_interval.values(), key=lambda x: x[0])[0])
+    one_candle.append(max(bids_asks_for_custom_time_interval.values(), key=lambda x: x[1])[1])
+
     return first_quote_key, one_candle
 
 
-def predict_bid_ask_delta(c_time_cndl_hist, numb_of_b_a, required_percentile, custom_timeframe_candle):
+def predict_bid_ask_delta(c_time_cndl_hist, numb_of_b_a, required_percentile):
     volatility_dict_up = {}
     volatility_dict_down = {}
 
@@ -189,10 +192,17 @@ def predict_bid_ask_delta(c_time_cndl_hist, numb_of_b_a, required_percentile, cu
         # c_time_cndl_hist.get(candle)[1] - open ask
         # c_time_cndl_hist.get(candle)[2] - best bid
         # c_time_cndl_hist.get(candle)[3] - best ask
-        volatility_up = float(c_time_cndl_hist.get(candle)[2]) - float(c_time_cndl_hist.get(candle)[0])
+        # c_time_cndl_hist.get(candle)[4] - close bid
+        # c_time_cndl_hist.get(candle)[5] - close ask
+        # c_time_cndl_hist.get(candle)[6] - lowest bid
+        # c_time_cndl_hist.get(candle)[7] - highest ask
+
+        # to make sure order is filled, we need delta from open bid to highest ask
+        volatility_up = float(c_time_cndl_hist.get(candle)[7]) - float(c_time_cndl_hist.get(candle)[0])
         volatility_dict_up.update({candle: volatility_up})
 
-        volatility_down = float(c_time_cndl_hist.get(candle)[1]) - float(c_time_cndl_hist.get(candle)[3])
+        # to make sure order is filled, we need delta from open ask to lowest bid
+        volatility_down = float(c_time_cndl_hist.get(candle)[1]) - float(c_time_cndl_hist.get(candle)[6])
         volatility_dict_down.update({candle: volatility_down})
 
     bid_deltas = list(volatility_dict_up.values())
