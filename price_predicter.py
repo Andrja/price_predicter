@@ -31,7 +31,7 @@ required_percentile = 50
 # number of grouped bids and asks(data window) of the time interval(timeframe_in_seconds)
 # to rely on when starting price predictions
 # the greater the number the more precise prediction is on the long run
-number_of_candles_to_rely_on = 2
+number_of_candles_to_rely_on = 15
 
 # numbers of all correctly predicted prices for bids and asks
 bid_success_rate = 0
