@@ -28,10 +28,10 @@ bid_ask_delta_prediction = []
 # probability price should hit the bid/ask level
 required_percentile = 50
 
-# number of grouped bids and asks(data window) of the time interval(timeframe_inseconds)
+# number of grouped bids and asks(data window) of the time interval(timeframe_in_seconds)
 # to rely on when starting price predictions
 # the greater the number the more precise prediction is on the long run
-number_of_candles_to_rely_on = 15
+number_of_candles_to_rely_on = 2
 
 # numbers of all correctly predicted prices for bids and asks
 bid_success_rate = 0
@@ -44,9 +44,13 @@ ask_success_rate_percents = 0
 # turns on/off displaying success rate
 show_success_rate = True
 
-# predicted prices
+# predicted deltas prices
 estimated_bid_delta = 0
 estimated_ask_delta = 0
+
+# predicted prices
+estimated_bid_price = 0
+estimated_ask_price = 0
 
 # max size of historical intervals dictionary
 historical_intervals_dictionary_max_size = number_of_candles_to_rely_on * 2
@@ -77,16 +81,11 @@ def process_message(message):
         if total_custom_intervals_formed > number_of_candles_to_rely_on:
             global estimated_bid_delta
             global estimated_ask_delta
+            global estimated_bid_price
+            global estimated_ask_price
 
             if estimated_bid_delta > 0:
-
-                estimated_bid_price = float(custom_timeframe_candle[0]) + float(estimated_bid_delta)
-                estimated_ask_price = float(custom_timeframe_candle[1]) - float(estimated_ask_delta)
-
-                print(f'### Predicted bid price {round(estimated_bid_price, 2)} ###')
                 print(f'### Best bid price {float(custom_timeframe_candle[2])} ###')
-
-                print(f'### Predicted ask price {round(estimated_ask_price, 2)} ###')
                 print(f'### Best ask price {float(custom_timeframe_candle[3])} ###')
 
                 if show_success_rate:
@@ -98,6 +97,17 @@ def process_message(message):
                                                                              number_of_candles_to_rely_on,
                                                                              required_percentile,
                                                                              custom_timeframe_candle)
+
+            if estimated_bid_delta > 0:
+
+                # predicted price = close price + estimated delta
+                estimated_bid_price = float(custom_timeframe_candle[4]) + float(estimated_bid_delta)
+                estimated_ask_price = float(custom_timeframe_candle[5]) - float(estimated_ask_delta)
+
+                print(f'### Predicted bid price {round(estimated_bid_price, 2)} ###')
+                print(f'### Predicted ask price {round(estimated_ask_price, 2)} ###')
+
+
 
         bids_asks_for_custom_time_interval.clear()
 
@@ -119,7 +129,7 @@ def calculate_success_rate(custom_timeframe_candle, total_custom_intervals_forme
     if float(custom_timeframe_candle[2]) > estimated_bid_price:
         bid_success_rate += 1
         bid_success_rate_percents = float(bid_success_rate / (
-                float(total_custom_intervals_formed) - float(number_of_candles_to_rely_on))) * 100
+                total_custom_intervals_formed - number_of_candles_to_rely_on - 1)) * 100
 
     print(f'### Bid success rate {round(bid_success_rate_percents, 2)} % ###')
 
@@ -127,7 +137,7 @@ def calculate_success_rate(custom_timeframe_candle, total_custom_intervals_forme
     if float(custom_timeframe_candle[3]) < estimated_ask_price:
         ask_success_rate += 1
         ask_success_rate_percents = float(ask_success_rate / (
-                total_custom_intervals_formed - float(number_of_candles_to_rely_on))) * 100
+                total_custom_intervals_formed - number_of_candles_to_rely_on - 1)) * 100
 
     print(f'### Ask success rate {round(ask_success_rate_percents, 2)} % ###')
     print('###############################')
@@ -149,7 +159,7 @@ def on_open(ws):
 def squash_into_1_candle(bids_asks_for_custom_time_interval):
     one_candle = []
 
-    # adding "open bid and ask prices"
+    # adding "open" bid and ask prices
     first_quote_key = next(iter(bids_asks_for_custom_time_interval))
     one_candle.append(bids_asks_for_custom_time_interval.get(first_quote_key)[0])
     one_candle.append(bids_asks_for_custom_time_interval.get(first_quote_key)[1])
@@ -157,6 +167,11 @@ def squash_into_1_candle(bids_asks_for_custom_time_interval):
     # squashing prices to get best bid and ask
     one_candle.append(max(bids_asks_for_custom_time_interval.values(), key=lambda x: x[0])[0])
     one_candle.append(min(bids_asks_for_custom_time_interval.values(), key=lambda x: x[1])[1])
+
+    # adding "close" bid and ask prices
+    last_quote_values = list(bids_asks_for_custom_time_interval.values())[-1]
+    one_candle.append(last_quote_values[0])
+    one_candle.append(last_quote_values[1])
 
     return first_quote_key, one_candle
 
